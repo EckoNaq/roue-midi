@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🍽️ La roue du midi</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #334155;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #f59e0b;
+    --accent-2: #ef4444;
+    --ok: #22c55e;
+    --border: #334155;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #1e293b, var(--bg));
+    color: var(--text);
+    min-height: 100vh;
+  }
+  header {
+    text-align: center;
+    padding: 24px 16px 8px;
+  }
+  header h1 { margin: 0; font-size: clamp(24px, 5vw, 40px); }
+  header p { margin: 6px 0 0; color: var(--muted); }
+
+  .layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 28px;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 20px 16px 60px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  /* --- Roue --- */
+  .wheel-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    flex: 1 1 380px;
+    min-width: 320px;
+  }
+  .wheel-wrap {
+    position: relative;
+    width: min(88vw, 440px);
+    aspect-ratio: 1;
+  }
+  canvas { width: 100%; height: 100%; display: block; }
+  .pointer {
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 18px solid transparent;
+    border-right: 18px solid transparent;
+    border-top: 30px solid var(--accent-2);
+    filter: drop-shadow(0 3px 4px rgba(0,0,0,.5));
+    z-index: 3;
+  }
+  .hub {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 4px solid var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    z-index: 2;
+    box-shadow: 0 4px 12px rgba(0,0,0,.4);
+  }
+
+  button.spin {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff;
+    border: none;
+    padding: 14px 40px;
+    font-size: 18px;
+    font-weight: 700;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(239,68,68,.35);
+    transition: transform .1s ease, box-shadow .2s ease;
+  }
+  button.spin:hover:not(:disabled) { transform: translateY(-2px); }
+  button.spin:active:not(:disabled) { transform: translateY(0); }
+  button.spin:disabled { opacity: .5; cursor: not-allowed; }
+
+  .result {
+    min-height: 52px;
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .result .win {
+    display: inline-block;
+    background: var(--ok);
+    color: #052e16;
+    padding: 8px 20px;
+    border-radius: 12px;
+    animation: pop .4s ease;
+  }
+  @keyframes pop { 0%{transform:scale(.6);opacity:0} 100%{transform:scale(1);opacity:1} }
+
+  /* --- Liste --- */
+  .list-col {
+    flex: 1 1 320px;
+    min-width: 300px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+  }
+  .list-col h2 { margin: 0 0 4px; font-size: 18px; }
+  .list-actions {
+    display: flex;
+    gap: 8px;
+    margin: 12px 0 14px;
+    flex-wrap: wrap;
+  }
+  .list-actions button {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 7px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .list-actions button:hover { background: #475569; }
+  .count { margin-left: auto; color: var(--muted); font-size: 13px; align-self: center; }
+
+  .add-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .add-row input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .add-row button {
+    background: var(--accent);
+    color: #422006;
+    border: none;
+    border-radius: 8px;
+    padding: 0 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  ul.resto { list-style: none; margin: 0; padding: 0; max-height: 420px; overflow-y: auto; }
+  ul.resto li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 8px;
+    border-radius: 8px;
+  }
+  ul.resto li:hover { background: var(--panel-2); }
+  ul.resto li label { flex: 1; cursor: pointer; user-select: none; }
+  ul.resto li input[type=checkbox] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent); }
+  ul.resto li.off label { color: var(--muted); text-decoration: line-through; }
+  .del {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 6px;
+  }
+  .del:hover { color: var(--accent-2); background: rgba(239,68,68,.1); }
+
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding-bottom: 30px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🍽️ La roue du midi</h1>
+    <p>On mange où aujourd'hui ?</p>
+  </header>
+
+  <div class="layout">
+    <div class="wheel-col">
+      <div class="wheel-wrap">
+        <div class="pointer"></div>
+        <canvas id="wheel" width="440" height="440"></canvas>
+        <div class="hub">🍴</div>
+      </div>
+      <button class="spin" id="spinBtn">Tourner !</button>
+      <div class="result" id="result"></div>
+    </div>
+
+    <div class="list-col">
+      <h2>Les restos</h2>
+      <div class="list-actions">
+        <button id="allBtn">Tout cocher</button>
+        <button id="noneBtn">Tout décocher</button>
+        <span class="count" id="count"></span>
+      </div>
+      <div class="add-row">
+        <input type="text" id="addInput" placeholder="Ajouter un resto…" maxlength="40">
+        <button id="addBtn">+</button>
+      </div>
+      <ul class="resto" id="list"></ul>
+    </div>
+  </div>
+
+  <footer>Sélection sauvegardée dans ce navigateur • Bon appétit 😋</footer>
+
+<script>
+const DEFAULT_RESTOS = [
+  "1er Mai", "Bana-Bana", "3 Brasseurs", "Bombora", "Alexens",
+  "Village CA (bagel)", "Switch ou bien", "Foodtruck du jour", "Sikera",
+  "Comptoir volant", "Smoki", "La famille", "La Gondole", "Pause sandwich",
+  "Prima Fila", "Pick it up", "Sales Mômes", "La promenade", "Le point de chute"
+];
+
+const COLORS = [
+  "#ef4444","#f97316","#f59e0b","#eab308","#84cc16","#22c55e",
+  "#10b981","#14b8a6","#06b6d4","#0ea5e9","#3b82f6","#6366f1",
+  "#8b5cf6","#a855f7","#d946ef","#ec4899","#f43f5e"
+];
+
+const STORAGE_KEY = "roue-midi-v1";
+
+// state: [{name, on}]
+let restos = load();
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return DEFAULT_RESTOS.map(name => ({ name, on: true }));
+}
+function save() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(restos)); } catch (e) {}
+}
+
+const canvas = document.getElementById("wheel");
+const ctx = canvas.getContext("2d");
+const listEl = document.getElementById("list");
+const resultEl = document.getElementById("result");
+const spinBtn = document.getElementById("spinBtn");
+const countEl = document.getElementById("count");
+
+let currentAngle = 0;   // radians
+let spinning = false;
+
+function selected() { return restos.filter(r => r.on); }
+
+function renderList() {
+  listEl.innerHTML = "";
+  restos.forEach((r, i) => {
+    const li = document.createElement("li");
+    if (!r.on) li.classList.add("off");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = r.on;
+    cb.id = "cb" + i;
+    cb.addEventListener("change", () => {
+      r.on = cb.checked;
+      save(); renderList(); drawWheel();
+    });
+    const label = document.createElement("label");
+    label.htmlFor = "cb" + i;
+    label.textContent = r.name;
+    const del = document.createElement("button");
+    del.className = "del";
+    del.title = "Supprimer";
+    del.textContent = "✕";
+    del.addEventListener("click", () => {
+      restos.splice(i, 1);
+      save(); renderList(); drawWheel();
+    });
+    li.append(cb, label, del);
+    listEl.appendChild(li);
+  });
+  const n = selected().length;
+  countEl.textContent = n + " / " + restos.length + " actif" + (n > 1 ? "s" : "");
+  spinBtn.disabled = n < 1 || spinning;
+}
+
+function drawWheel() {
+  const items = selected();
+  const size = canvas.width;
+  const cx = size / 2, cy = size / 2, r = size / 2 - 4;
+  ctx.clearRect(0, 0, size, size);
+
+  if (items.length === 0) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = "#334155";
+    ctx.fill();
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "16px system-ui";
+    ctx.textAlign = "center";
+    ctx.fillText("Coche au moins", cx, cy - 10);
+    ctx.fillText("un resto →", cx, cy + 14);
+    return;
+  }
+
+  const seg = (Math.PI * 2) / items.length;
+  items.forEach((item, i) => {
+    const start = currentAngle + i * seg;
+    const end = start + seg;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, start, end);
+    ctx.closePath();
+    ctx.fillStyle = COLORS[i % COLORS.length];
+    ctx.fill();
+    ctx.strokeStyle = "rgba(15,23,42,.5)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // texte
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(start + seg / 2);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#0f172a";
+    ctx.font = "bold " + Math.max(11, Math.min(18, 260 / items.length)) + "px system-ui";
+    let name = item.name;
+    if (name.length > 18) name = name.slice(0, 17) + "…";
+    ctx.fillText(name, r - 16, 6);
+    ctx.restore();
+  });
+
+  // contour
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = "#f59e0b";
+  ctx.lineWidth = 6;
+  ctx.stroke();
+}
+
+function spin() {
+  const items = selected();
+  if (spinning || items.length < 1) return;
+  spinning = true;
+  spinBtn.disabled = true;
+  resultEl.innerHTML = "";
+
+  const seg = (Math.PI * 2) / items.length;
+  const winnerIndex = Math.floor(Math.random() * items.length);
+
+  // Le pointeur est en haut (-PI/2). On veut que le centre du segment gagnant
+  // s'aligne sous le pointeur.
+  const pointerAngle = -Math.PI / 2;
+  const segCenter = winnerIndex * seg + seg / 2;
+  const turns = 5 + Math.floor(Math.random() * 3); // 5 à 7 tours
+  const targetAngle = pointerAngle - segCenter + turns * Math.PI * 2;
+
+  const startAngle = currentAngle % (Math.PI * 2);
+  const delta = targetAngle - startAngle;
+  const duration = 4200;
+  let startTime = null;
+
+  function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+
+  function frame(ts) {
+    if (startTime === null) startTime = ts;
+    const elapsed = ts - startTime;
+    const t = Math.min(elapsed / duration, 1);
+    currentAngle = startAngle + delta * easeOut(t);
+    drawWheel();
+    if (t < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      spinning = false;
+      renderList();
+      const win = items[winnerIndex].name;
+      resultEl.innerHTML = '<span class="win">🎉 ' + escapeHtml(win) + '</span>';
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+document.getElementById("allBtn").addEventListener("click", () => {
+  restos.forEach(r => r.on = true); save(); renderList(); drawWheel();
+});
+document.getElementById("noneBtn").addEventListener("click", () => {
+  restos.forEach(r => r.on = false); save(); renderList(); drawWheel();
+});
+const addInput = document.getElementById("addInput");
+function addResto() {
+  const name = addInput.value.trim();
+  if (!name) return;
+  restos.push({ name, on: true });
+  addInput.value = "";
+  save(); renderList(); drawWheel();
+}
+document.getElementById("addBtn").addEventListener("click", addResto);
+addInput.addEventListener("keydown", e => { if (e.key === "Enter") addResto(); });
+spinBtn.addEventListener("click", spin);
+
+renderList();
+drawWheel();
+</script>
+</body>
+</html>
